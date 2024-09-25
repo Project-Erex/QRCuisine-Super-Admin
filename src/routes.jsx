@@ -4,10 +4,13 @@ import {
   TableCellsIcon,
   InformationCircleIcon,
   ServerStackIcon,
-  RectangleStackIcon,
+  BuildingStorefrontIcon,
+  CloudIcon,
 } from "@heroicons/react/24/solid";
-import { Home, Profile, Tables, Notifications } from "@/pages/dashboard";
-import { SignIn, SignUp } from "@/pages/auth";
+import {Home, Profile, Tables, Notifications} from "@/pages/dashboard";
+import {SignIn} from "@/pages/auth";
+import Restaurants from "./pages/dashboard/restaurants";
+import Cloudinary from "./pages/dashboard/cloudinary";
 
 const icon = {
   className: "w-5 h-5 text-inherit",
@@ -28,6 +31,18 @@ export const routes = [
         name: "profile",
         path: "/profile",
         element: <Profile />,
+      },
+      {
+        icon: <BuildingStorefrontIcon {...icon} />,
+        name: "restaurants",
+        path: "/restaurants",
+        element: <Restaurants />,
+      },
+      {
+        icon: <CloudIcon {...icon} />,
+        name: "cloudinary",
+        path: "/cloudinary",
+        element: <Cloudinary />,
       },
       {
         icon: <TableCellsIcon {...icon} />,
@@ -52,12 +67,6 @@ export const routes = [
         name: "sign in",
         path: "/sign-in",
         element: <SignIn />,
-      },
-      {
-        icon: <RectangleStackIcon {...icon} />,
-        name: "sign up",
-        path: "/sign-up",
-        element: <SignUp />,
       },
     ],
   },
