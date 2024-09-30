@@ -1,20 +1,12 @@
 import supabase from "@/configs/supabase";
 
-export async function getCloudinaryApis(page, pageSize, status, searchQuery) {
+export async function getCloudinaryApis() {
   try {
     let query = supabase
-      .from("cloudinary")
-      .select(`*`, {count: "exact"})
-      .order("created_at", {ascending: false})
-      .range((page - 1) * pageSize, page * pageSize - 1)
-      .limit(pageSize);
+      .from("restaurants")
+      .select(`*,cloudinary_id(*)`, {count: "exact"})
+      .order("created_at", {ascending: false});
 
-    // if (status !== "all") {
-    //   query = query.eq("is_verified", status === "verified");
-    // }
-    if (searchQuery) {
-      query = query.ilike("title", `%${searchQuery}%`);
-    }
     const {data, count, error} = await query;
     if (error) {
       throw error;
@@ -26,3 +18,26 @@ export async function getCloudinaryApis(page, pageSize, status, searchQuery) {
     throw error;
   }
 }
+
+export const insertCloudinaryData = async (
+  title,
+  cloud_name,
+  upload_preset,
+  apiKey,
+  apiSecret,
+) => {
+  try {
+    // Insert new row into 'cloudinary' table
+    const {data, error} = await supabase
+      .from("cloudinary")
+      .insert([{title, cloud_name, upload_preset, apiKey, apiSecret}]);
+
+    if (error) {
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    console.error("Error inserting data:", error.message);
+    alert("Failed to insert Cloudinary data");
+  }
+};

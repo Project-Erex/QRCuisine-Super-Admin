@@ -4,12 +4,11 @@ import {Card, CardBody, Typography, Spinner, Progress} from "@material-tailwind/
 const cloudName = "drxwyotes"; // Replace with your actual Cloudinary cloud name
 const apiKey = "749371497479183"; // Replace with your actual Cloudinary API key
 const apiSecret = "yX9sQyShyf5usndtLYTx7J5TPAo"; // Be careful! Insecure to expose this directly
-const apiBase = `https://api.cloudinary.com/v1_1/${cloudName}`;
 
 const supabaseKey =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImljeWFnbHZ4dXppcWZjeHd0eW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjY3Mjc3OTQsImV4cCI6MjA0MjMwMzc5NH0.NCYQ-48zeXzqSeeAsGS_voi5T8LdONE9NXxdvIxOrYU";
 
-export default function CloudinaryUsage() {
+export default function CloudinaryUsage({cloudName, apiKey, apiSecret}) {
   const [usageData, setUsageData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -61,20 +60,16 @@ export default function CloudinaryUsage() {
   }
 
   return (
-    <Card className="h-full w-full">
-      <CardBody>
-        <div className="w-full">
-          <div className="mb-2 flex items-center justify-between gap-4">
-            <Typography color="blue-gray" variant="h6">
-              Storage Usage
-            </Typography>
-            <Typography color="blue-gray" variant="h6">
-              {usageData.credits.used_percent}%
-            </Typography>
-          </div>
-          <Progress value={usageData.credits.used_percent} />
-        </div>
-      </CardBody>
-    </Card>
+    <div className="w-full">
+      <div className="mb-2 flex items-center justify-between gap-4">
+        <Typography color="blue-gray" variant="h6">
+          Storage Usage
+        </Typography>
+        <Typography color="blue-gray" variant="h6">
+          {usageData.credits.used_percent}%
+        </Typography>
+      </div>
+      <Progress value={usageData.credits.used_percent} />
+    </div>
   );
 }

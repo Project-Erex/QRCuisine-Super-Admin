@@ -1,5 +1,5 @@
-import {ChevronDownIcon, PencilIcon, UserPlusIcon} from "@heroicons/react/24/solid";
-import {ArrowDownTrayIcon, MagnifyingGlassIcon} from "@heroicons/react/24/outline";
+import {Fragment, useEffect, useState} from "react";
+import {CloudIcon, EyeDropperIcon, EyeIcon} from "@heroicons/react/24/solid";
 import {
   Card,
   CardHeader,
@@ -7,38 +7,24 @@ import {
   Button,
   CardBody,
   Chip,
-  CardFooter,
+  Spinner,
+  Progress,
+  List,
+  ListItem,
+  ListItemPrefix,
   Avatar,
   IconButton,
-  Tooltip,
-  Input,
-  Tabs,
-  TabsHeader,
-  Tab,
-  Spinner,
+  Drawer,
 } from "@material-tailwind/react";
-import {useEffect, useState} from "react";
-import {getRestaurantsApis} from "@/apis/restaurants-api";
-const TABS = [
-  {
-    label: "All",
-    value: "all",
-  },
-  {
-    label: "Verified",
-    value: "verified",
-  },
-  {
-    label: "Unverified",
-    value: "unverified",
-  },
-];
+import {getCloudinaryApis} from "@/apis/cloudinary-apis";
+// import CryptoJS from "crypto-js";
+import Cloudinaryinsert from "@/components/cloudinary-usage/Cloudinary-insert";
 
 const TABLE_HEAD = [
-  "Restaurant",
   "Cloudinary",
   "Cloud Name",
   "Upload Preset",
+  "Upgrade Plan",
   "Storage",
   "",
 ];
@@ -46,27 +32,17 @@ const TABLE_HEAD = [
 export default function Cloudinary() {
   const [restaurantsData, setRestaurantsData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [maxItems, setMaxItems] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [maxRow, setMaxRow] = useState(10);
   const isTesting = false;
-
+  const [data, setData] = useState([]);
+  const [expandedClouds, setExpandedClouds] = useState({});
+  const [selectedCloudData, setSelectedCloudData] = useState(null);
+  const [openDrawer, setOpenDrawer] = useState(false);
   const fetchRestaurantsData = async () => {
-    const restaurantResult = await getRestaurantsApis(
-      currentPage,
-      maxRow,
-      activeTab,
-      searchQuery,
-    );
+    const restaurantResult = await getCloudinaryApis();
     if (restaurantResult) {
       console.log("result", restaurantResult.count);
       setRestaurantsData(restaurantResult.data);
-      console.log("Response:", restaurantResult);
-      setMaxItems(restaurantResult.count);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -76,202 +52,316 @@ export default function Cloudinary() {
     } else {
       fetchRestaurantsData();
     }
-  }, [maxRow, currentPage, loading, activeTab, searchQuery]);
+  }, [loading]);
 
-  const totalPages = Math.ceil(maxItems / maxRow);
-  const handlePageChange = (page) => {
-    setLoading(true);
-    setCurrentPage(page);
+  const getUsageStats = async (cloudName, apiKey, apiSecret) => {
+    const supabaseKey =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImljeWFnbHZ4dXppcWZjeHd0eW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjY3Mjc3OTQsImV4cCI6MjA0MjMwMzc5NH0.NCYQ-48zeXzqSeeAsGS_voi5T8LdONE9NXxdvIxOrYU";
+
+    try {
+      const response = await fetch(
+        `https://icyaglvxuziqfcxwtymo.supabase.co/functions/v1/cloud-function?cloudName=${cloudName}&apiKey=${apiKey}&apiSecret=${apiSecret}`,
+        {
+          headers: {
+            "Content-type": "application/json; charset=UTF-8",
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+        },
+      );
+      if (!response.ok) throw new Error("Network response was not ok");
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching usage statistics:", error);
+    }
   };
-  const handleTabChange = (value) => {
-    setActiveTab(value);
-    setCurrentPage(1);
-    console.log("CurrentValue: ", value);
+  useEffect(() => {
+    if (restaurantsData.length > 0) {
+      cloudinaryData();
+    }
+  }, [restaurantsData]);
+
+  const cloudinaryData = async () => {
+    const accData = await Promise.all(
+      restaurantsData.map(async (item) => {
+        const cloudinary = item?.cloudinary_id;
+        const data = await getUsageStats(
+          cloudinary?.cloud_name,
+          cloudinary?.apiKey,
+          cloudinary?.apiSecret,
+        );
+        return {
+          ...item,
+          usages: data,
+        };
+      }),
+    );
+
+    if (accData.length > 0) {
+      // Filter data by unique cloud_name
+      const filteredData = accData.reduce((acc, item) => {
+        const cloudName = item.cloud_name;
+        if (!acc[cloudName]) {
+          acc[cloudName] = [];
+        }
+        acc[cloudName].push(item);
+        return acc;
+      }, {});
+
+      setData(filteredData); // Update the state with filtered data
+      console.log("Response:", filteredData);
+    }
+
+    setLoading(false);
   };
+
+  const toggleExpand = (cloudName, restaurants) => {
+    if (expandedClouds[cloudName]) {
+      // If the drawer is open for this cloud, close it
+      setOpenDrawer(false);
+      setSelectedCloudData(null);
+    } else {
+      // Open drawer and set the data for the selected cloud
+      setOpenDrawer(true);
+      setSelectedCloudData({cloudName, restaurants});
+    }
+
+    setExpandedClouds((prev) => ({
+      ...prev,
+      [cloudName]: !prev[cloudName],
+    }));
+  };
+
+  // Close drawer
+  const isCloseDrawer = () => {
+    setOpenDrawer(false);
+    setSelectedCloudData(null);
+  };
+  const [open, setOpen] = useState(false);
+
+  const handleOpen = () => setOpen(!open);
+
+  console.log("selectedCloudData", selectedCloudData);
+
   return (
-    <Card className="h-full w-full">
-      <CardHeader floated={false} shadow={false} className="rounded-none">
-        <div className="mb-8 flex items-center justify-between gap-8">
-          <div>
-            <Typography variant="h5" color="blue-gray">
-              Restaurants
-            </Typography>
-            <Typography color="gray" className="mt-1 font-normal">
-              See information about all Restaurants
-            </Typography>
+    <>
+      <Card className="h-full w-full">
+        <CardHeader floated={false} shadow={false} className="rounded-none">
+          <div className="mb-8 flex items-center justify-between gap-8">
+            <div>
+              <Typography variant="h5" color="blue-gray">
+                Cloudinary
+              </Typography>
+              <Typography color="gray" className="mt-1 font-normal">
+                See information about all Cloudinary accounts
+              </Typography>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+              <Button onClick={handleOpen} className="flex items-center gap-3" size="sm">
+                <CloudIcon strokeWidth={2} className="h-4 w-4" />
+                Add Cloudinary A/C
+              </Button>
+            </div>
           </div>
-          <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-            <Button className="flex items-center gap-3" size="sm">
-              <UserPlusIcon strokeWidth={2} className="h-4 w-4" /> Add member
-            </Button>
-          </div>
-        </div>
-        <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-          <Tabs value="all" className="w-full md:w-max">
-            <TabsHeader>
-              {TABS.map(({label, value}) => (
-                <Tab key={value} value={value} onClick={() => handleTabChange(value)}>
-                  &nbsp;&nbsp;{label}&nbsp;&nbsp;
-                </Tab>
-              ))}
-            </TabsHeader>
-          </Tabs>
-          <div className="w-full md:w-72">
-            <Input
-              label="Search by Restaurants"
-              icon={<MagnifyingGlassIcon className="h-5 w-5" />}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  setLoading(true);
-                  setCurrentPage(1);
-                }
-              }}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-      </CardHeader>
-      <CardBody className="overflow-scroll px-0">
-        {loading ? (
-          <div className="flex w-full h-[350px] justify-center items-center">
-            <Spinner className="h-8 w-8" />
-          </div>
-        ) : (
-          <table className="mt-4 w-full min-w-max table-auto text-left">
-            <thead>
-              <tr>
-                {TABLE_HEAD.map((head) => (
-                  <th
-                    key={head}
-                    className="border-y border-blue-gray-100 bg-blue-gray-50/50 p-4">
-                    <Typography
-                      variant="small"
-                      color="blue-gray"
-                      className="font-normal leading-none opacity-70">
-                      {head}
-                    </Typography>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-
-            <tbody
-              className={`${
-                restaurantsData.length === 0 && "h-[300px]"
-              } relative w-full `}>
-              {restaurantsData.length === 0 ? (
+        </CardHeader>
+        <CardBody className="overflow-scroll px-0">
+          {loading ? (
+            <div className="flex w-full h-[350px] justify-center items-center">
+              <Spinner className="h-8 w-8" />
+            </div>
+          ) : (
+            <table className="mt-4 w-full min-w-max table-auto text-left">
+              <thead>
                 <tr>
-                  <td colSpan={TABLE_HEAD.length} className="text-center p-4">
-                    <Typography variant="h6" color="blue-gray" className="font-normal">
-                      No Cloudinary Credential Found
-                    </Typography>
-                  </td>
+                  {TABLE_HEAD.map((head) => (
+                    <th
+                      key={head}
+                      className="border-y border-blue-gray-100 bg-blue-gray-50/50 p-4">
+                      <Typography
+                        variant="small"
+                        color="blue-gray"
+                        className="font-normal leading-none opacity-70">
+                        {head}
+                      </Typography>
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                restaurantsData.map(
-                  (
-                    {
-                      id,
-                      created_at,
-                      restaurant_name,
-                      logo,
-                      cloud_name,
-                      upload_preset,
-                      cloudinary_id,
-                      storage,
-                    },
-                    index,
-                  ) => {
-                    const isLast = index === restaurantsData.length - 1;
-                    const classes = isLast ? "p-4" : "p-4 border-b border-blue-gray-50";
+              </thead>
+              <tbody
+                className={`${
+                  restaurantsData.length === 0 && "h-[300px]"
+                } relative w-full`}>
+                {Object.keys(data).length === 0 ? (
+                  <tr>
+                    <td colSpan={TABLE_HEAD.length} className="text-center p-4">
+                      <Typography variant="h6" color="blue-gray" className="font-normal">
+                        No Cloudinary Credential Found
+                      </Typography>
+                    </td>
+                  </tr>
+                ) : (
+                  Object.keys(data).map((cloudName, index) => {
+                    const restaurants = data[cloudName];
+                    const isExpanded = expandedClouds[cloudName];
+                    const showMore = restaurants.length > 1 && !isExpanded;
 
                     return (
-                      <tr key={index}>
-                        <td className={classes}>
-                          <div className="flex items-center gap-2">
-                            <Avatar src={logo} alt={restaurant_name} size="md" />
-                            <div className="flex flex-col">
-                              <Typography
-                                variant="small"
-                                color="blue-gray"
-                                className="font-normal">
-                                {restaurant_name}
-                              </Typography>
-                            </div>
-                          </div>
-                        </td>
-                        <td className={classes}>
-                          <Chip
-                            variant="ghost"
-                            size="md"
-                            color={
-                              cloudinary_id?.title === "primary"
-                                ? "amber"
-                                : cloudinary_id?.title === "secondary"
-                                ? "green"
-                                : "gray"
-                            }
-                            value={cloudinary_id?.title || "Select"}
-                            className="flex justify-center cursor-pointer"
-                          />
-                        </td>
-                        <td className={classes}>
-                          <Typography
-                            variant="small"
-                            color="blue-gray"
-                            className="font-normal">
-                            {cloud_name}
-                          </Typography>
-                        </td>
-                        <td className={classes}>
-                          <Typography
-                            variant="small"
-                            color="blue-gray"
-                            className="font-normal">
-                            {upload_preset}
-                          </Typography>
-                        </td>
-                      </tr>
+                      <Fragment key={cloudName}>
+                        {restaurants.slice(0, 1).map((restaurant, idx) => {
+                          const isLast = idx === restaurants.length - 1;
+                          const classes = isLast
+                            ? "p-4"
+                            : "p-4 border-b border-blue-gray-50";
+                          const {
+                            restaurant_name,
+                            cloud_name,
+                            upload_preset,
+                            cloudinary_id,
+                            usages,
+                          } = restaurant;
+
+                          return (
+                            <tr key={restaurant.id}>
+                              <td className={classes}>
+                                <Chip
+                                  variant="filled"
+                                  size="lg"
+                                  icon={<CloudIcon />}
+                                  color={
+                                    cloudinary_id?.title === "primary"
+                                      ? "amber"
+                                      : cloudinary_id?.title === "secondary"
+                                      ? "green"
+                                      : "gray"
+                                  }
+                                  value={cloudinary_id?.title || "Select"}
+                                  className="flex justify-center cursor-pointer"
+                                />
+                              </td>
+                              <td className={classes}>
+                                <Typography color="blue-gray" variant="paragraph">
+                                  {cloud_name}
+                                </Typography>
+                              </td>
+                              <td className={classes}>
+                                <Typography color="blue-gray" variant="paragraph">
+                                  {upload_preset}
+                                </Typography>
+                              </td>
+                              <td className={classes}>
+                                <Chip
+                                  variant="outlined"
+                                  size="lg"
+                                  // color={usages?.plan ? "indigo" : "green"}
+                                  color={
+                                    usages?.plan === "Free"
+                                      ? "amber"
+                                      : usages?.plan === "Paid"
+                                      ? "green"
+                                      : "gray"
+                                  }
+                                  value={usages?.plan || "N/A"}
+                                  className="flex justify-center cursor-pointer"
+                                />
+                              </td>
+                              <td className={classes}>
+                                <div className="mb-2 flex items-center justify-between gap-4">
+                                  <Typography color="blue-gray" variant="h6">
+                                    Storage Usage
+                                  </Typography>
+                                  <Typography color="blue-gray" variant="h6">
+                                    {usages?.credits?.used_percent || 0}%
+                                  </Typography>
+                                </div>
+                                <Progress value={usages?.credits?.used_percent} />
+                              </td>
+
+                              {showMore && (
+                                <td className={classes}>
+                                  <IconButton
+                                    variant="text"
+                                    onClick={() => toggleExpand(cloudName, restaurants)}>
+                                    <EyeIcon className="h-4 w-4" />
+                                  </IconButton>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
                     );
-                  },
-                )
-              )}
-            </tbody>
-          </table>
+                  })
+                )}
+              </tbody>
+            </table>
+          )}
+        </CardBody>
+      </Card>
+      <Drawer
+        overlay={true}
+        overlayProps={{
+          className: "fixed inset-0 h-full",
+        }}
+        size={500}
+        placement="right"
+        className="p-4 overflow-y-scroll"
+        open={openDrawer}
+        onClose={isCloseDrawer}>
+        {selectedCloudData && (
+          <div className="flex flex-col items-start">
+            {/* Close Button */}
+            <div className="mb-6 flex items-center justify-between">
+              <IconButton
+                variant="text"
+                color="blue-gray"
+                onClick={() => toggleExpand(selectedCloudData.cloudName)}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="h-5 w-5">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </IconButton>
+            </div>
+
+            <Typography variant="lead" color="blue-gray">
+              Restaurants Using Cloudinary
+            </Typography>
+
+            <Card className="w-full !shadow-none pt-4">
+              <List>
+                {selectedCloudData.restaurants.map((restaurant, idx) => (
+                  <ListItem>
+                    <ListItemPrefix>
+                      <Avatar
+                        variant="circular"
+                        withBorder={true}
+                        color="green"
+                        alt="alexander"
+                        src={restaurant.logo}
+                      />
+                    </ListItemPrefix>
+                    <div>
+                      <Typography key={idx} variant="paragraph" color="blue-gray">
+                        {restaurant.restaurant_name}
+                      </Typography>
+                    </div>
+                  </ListItem>
+                ))}
+              </List>
+            </Card>
+          </div>
         )}
-      </CardBody>
-      <CardFooter className="flex items-center justify-between border-t border-blue-gray-50 p-4">
-        <Button variant="outlined" size="sm">
-          Previous
-        </Button>
-        <div className="flex items-center gap-2">
-          <IconButton variant="outlined" size="sm">
-            1
-          </IconButton>
-          <IconButton variant="text" size="sm">
-            2
-          </IconButton>
-          <IconButton variant="text" size="sm">
-            3
-          </IconButton>
-          <IconButton variant="text" size="sm">
-            ...
-          </IconButton>
-          <IconButton variant="text" size="sm">
-            8
-          </IconButton>
-          <IconButton variant="text" size="sm">
-            9
-          </IconButton>
-          <IconButton variant="text" size="sm">
-            10
-          </IconButton>
-        </div>
-        <Button variant="outlined" size="sm">
-          Next
-        </Button>
-      </CardFooter>
-    </Card>
+      </Drawer>
+      <Cloudinaryinsert open={open} setOpen={setOpen} handleOpen={handleOpen} />
+    </>
   );
 }
