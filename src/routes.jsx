@@ -7,7 +7,7 @@ import {
   BuildingStorefrontIcon,
   CloudIcon,
 } from "@heroicons/react/24/solid";
-import {Home, Profile, Tables, Notifications} from "@/pages/dashboard";
+import {Home, Profile, Notifications, Ranking} from "@/pages/dashboard";
 import {SignIn} from "@/pages/auth";
 import Restaurants from "./pages/dashboard/restaurants";
 import Cloudinary from "./pages/dashboard/cloudinary";
@@ -46,9 +46,9 @@ export const routes = [
       },
       {
         icon: <TableCellsIcon {...icon} />,
-        name: "tables",
-        path: "/tables",
-        element: <Tables />,
+        name: "ranking",
+        path: "/ranking",
+        element: <Ranking />,
       },
       {
         icon: <InformationCircleIcon {...icon} />,

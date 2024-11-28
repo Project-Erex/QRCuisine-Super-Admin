@@ -27,7 +27,25 @@ export const insertCloudinaryData = async (
   apiSecret,
 ) => {
   try {
-    // Insert new row into 'cloudinary' table
+    // Check if cloud_name already exists
+    const {data: existingData, error: selectError} = await supabase
+      .from("cloudinary")
+      .select("cloud_name,upload_preset,apiKey,apiSecret")
+      .eq("cloud_name", cloud_name)
+      .eq("upload_preset", upload_preset)
+      .eq("apiKey", apiKey)
+      .eq("apiSecret", apiSecret);
+
+    if (selectError) {
+      throw selectError;
+    }
+
+    if (existingData.length > 0) {
+      throw new Error(
+        "A record with this Cloud name, upload preset, API key, and API secret already exists. Please use different values.",
+      );
+    }
+
     const {data, error} = await supabase
       .from("cloudinary")
       .insert([{title, cloud_name, upload_preset, apiKey, apiSecret}]);
@@ -35,9 +53,9 @@ export const insertCloudinaryData = async (
     if (error) {
       throw error;
     }
+
     return data;
   } catch (error) {
-    console.error("Error inserting data:", error.message);
-    alert("Failed to insert Cloudinary data");
+    throw error;
   }
 };

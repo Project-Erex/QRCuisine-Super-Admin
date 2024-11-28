@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       `https://api.cloudinary.com/v1_1/${cloudName}/usage`,
       {
         headers: {
-          Authorization: `Basic ${btoa(auth)}`, // Encode the auth credentials
+          Authorization: `Basic ${btoa(auth)}`, 
         },
       },
     );

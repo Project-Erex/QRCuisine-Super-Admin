@@ -1,16 +1,26 @@
-import {Input, Checkbox, Button, Typography, Spinner} from "@material-tailwind/react";
+import {
+  Input,
+  Checkbox,
+  Button,
+  Typography,
+  Spinner,
+  Select,
+  Option,
+} from "@material-tailwind/react";
 import {Link, useNavigate} from "react-router-dom";
-import {useState} from "react";
-import supabase from "@/configs/supabase";
+import {useEffect, useState} from "react";
 import {toast, ToastContainer} from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import {getBaseUrl} from "@/configs/base_url";
 export function SignIn() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({email: "", password: "", general: ""});
-
+  const [version, setVersion] = useState(localStorage.getItem("selectedVersion") || "");
   const [loading, setLoading] = useState(false);
+
+  const apiUrl = getBaseUrl();
 
   const validate = () => {
     let valid = true;
@@ -34,88 +44,70 @@ export function SignIn() {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
+
     try {
-      const {data, error} = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
+      // Step 1: Authenticate user with email and password
+      console.log("authenticating", apiUrl);
+      const response = await fetch(`${apiUrl}/api/super-admin-sign-in`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({email, password}),
       });
 
-      if (error || !data) {
+      const result = await response.json();
+
+      if (!response.ok) {
         setErrors((prev) => ({
           ...prev,
-          general: error?.message || "Login failed",
+          general: result.error || "Authentication failed",
         }));
-        toast.error(error?.message || "Login failed");
+        toast.error(result.error || "Authentication failed");
         return;
       }
 
-      const userData = data.user;
+      // Step 2: Check super admin permissions and token
+      const {data, message} = result;
 
-      if (
-        userData?.user_metadata?.isVerified &&
-        userData?.user_metadata?.is_super_admin
-      ) {
+      if (message === "Super admin authenticated" && data.session?.access_token) {
         const accessToken = data.session.access_token;
         localStorage.setItem("accessToken", accessToken);
-
-        console.log("User ID:", userData.id);
-        toast.success("Login successful! Fetching restaurant data...");
-        await fetchRestaurantData(userData.id);
+        toast.success("Login successful! Redirecting to the dashboard...");
+        navigate("/dashboard/home");
       } else {
         setErrors((prev) => ({
           ...prev,
-          general: "You do not have the necessary permissions to access this area",
+          general: "Unexpected response from server",
         }));
+        toast.error("Unexpected response from server");
       }
     } catch (err) {
       setErrors((prev) => ({
         ...prev,
-        general: "An unexpected error occurred",
+        general: "An error occurred during login",
       }));
       console.error("Error during login:", err);
+      toast.error("An error occurred during login");
     } finally {
-      setLoading(false); // Always set loading to false when the operation ends
+      setLoading(false);
     }
   };
 
-  const fetchRestaurantData = async (adminId) => {
-    console.log("fetchRestaurantData called with adminId:", adminId); // Check if this line is executed
-    if (!adminId) {
-      console.error("adminId is undefined or invalid");
-      setErrors((prev) => ({...prev, general: "Invalid admin ID"}));
-      return; // Early exit if adminId is not valid
+  useEffect(() => {
+    // Load the saved version from localStorage when the component mounts
+    const savedVersion = localStorage.getItem("selectedVersion");
+    if (savedVersion) {
+      setVersion(savedVersion);
     }
+  }, []);
 
-    try {
-      const {data, error} = await supabase
-        .from("restaurants")
-        .select("id, upload_preset, cloud_name, unique_name")
-        .eq("admin_id", adminId)
-        .single();
-
-      console.log("Restaurant data:", data); // Log data for inspection
-      if (error || !data) {
-        setErrors((prev) => ({
-          ...prev,
-          general: error?.message || "Failed to fetch restaurant data",
-        }));
-        return;
-      }
-
-      localStorage.setItem("restaurants_id", data.id);
-      localStorage.setItem("cloudName", data.cloud_name);
-      localStorage.setItem("uploadPreset", data.upload_preset);
-      localStorage.setItem("restaurantName", data.unique_name);
-      console.log("Navigating to /dashboard/home");
-      navigate("/dashboard/home");
-    } catch (err) {
-      setErrors((prev) => ({
-        ...prev,
-        general: "An unexpected error occurred while fetching restaurant data",
-      }));
-      console.error("Error fetching restaurant data:", err);
-    }
+  const handleSelectChange = (selectedVersion) => {
+    setVersion(selectedVersion);
+    localStorage?.setItem("selectedVersion", selectedVersion); // Save to local storage
+    window.location.reload();
   };
+
   return (
     <section className="m-8 flex gap-4">
       <div className="w-full lg:w-3/5 mt-24">
@@ -130,9 +122,20 @@ export function SignIn() {
             Enter your email and password to Sign In.
           </Typography>
         </div>
+
         <form
           onSubmit={handleSubmit}
           className="mt-8 mb-2 mx-auto w-80 max-w-screen-lg lg:w-1/2">
+          <div className="mb-3 flex flex-col gap-6">
+            <Typography variant="small" color="blue-gray" className="-mb-3 font-medium">
+              Select Version
+            </Typography>
+            <Select value={version} onChange={handleSelectChange} label="Select Version">
+              <Option value="USA">USA</Option>
+              <Option value="India">INDIA</Option>
+            </Select>
+          </div>
+
           <div className="mb-1 flex flex-col gap-6">
             <Typography variant="small" color="blue-gray" className="-mb-3 font-medium">
               Your email

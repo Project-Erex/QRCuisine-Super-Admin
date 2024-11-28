@@ -19,6 +19,7 @@ import {
 import {getCloudinaryApis} from "@/apis/cloudinary-apis";
 // import CryptoJS from "crypto-js";
 import Cloudinaryinsert from "@/components/cloudinary-usage/Cloudinary-insert";
+import ViewRestaurantsModal from "@/components/cloudinary-usage/view-restaurants-modal";
 
 const TABLE_HEAD = [
   "Cloudinary",
@@ -122,7 +123,6 @@ export default function Cloudinary() {
       setOpenDrawer(false);
       setSelectedCloudData(null);
     } else {
-      // Open drawer and set the data for the selected cloud
       setOpenDrawer(true);
       setSelectedCloudData({cloudName, restaurants});
     }
@@ -298,69 +298,12 @@ export default function Cloudinary() {
           )}
         </CardBody>
       </Card>
-      <Drawer
-        overlay={true}
-        overlayProps={{
-          className: "fixed inset-0 h-full",
-        }}
-        size={500}
-        placement="right"
-        className="p-4 overflow-y-scroll"
+      <ViewRestaurantsModal
         open={openDrawer}
-        onClose={isCloseDrawer}>
-        {selectedCloudData && (
-          <div className="flex flex-col items-start">
-            {/* Close Button */}
-            <div className="mb-6 flex items-center justify-between">
-              <IconButton
-                variant="text"
-                color="blue-gray"
-                onClick={() => toggleExpand(selectedCloudData.cloudName)}>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="h-5 w-5">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </IconButton>
-            </div>
-
-            <Typography variant="lead" color="blue-gray">
-              Restaurants Using Cloudinary
-            </Typography>
-
-            <Card className="w-full !shadow-none pt-4">
-              <List>
-                {selectedCloudData.restaurants.map((restaurant, idx) => (
-                  <ListItem>
-                    <ListItemPrefix>
-                      <Avatar
-                        variant="circular"
-                        withBorder={true}
-                        color="green"
-                        alt="alexander"
-                        src={restaurant.logo}
-                      />
-                    </ListItemPrefix>
-                    <div>
-                      <Typography key={idx} variant="paragraph" color="blue-gray">
-                        {restaurant.restaurant_name}
-                      </Typography>
-                    </div>
-                  </ListItem>
-                ))}
-              </List>
-            </Card>
-          </div>
-        )}
-      </Drawer>
+        selectedCloudData={selectedCloudData}
+        onClose={isCloseDrawer}
+        onToggleExpand={toggleExpand}
+      />
       <Cloudinaryinsert open={open} setOpen={setOpen} handleOpen={handleOpen} />
     </>
   );
