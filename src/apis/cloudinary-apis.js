@@ -1,20 +1,12 @@
 import supabase from "@/configs/supabase";
 
-export async function getCloudinaryApis(page, pageSize, status, searchQuery) {
+export async function getCloudinaryApis() {
   try {
     let query = supabase
-      .from("cloudinary")
-      .select(`*`, {count: "exact"})
-      .order("created_at", {ascending: false})
-      .range((page - 1) * pageSize, page * pageSize - 1)
-      .limit(pageSize);
+      .from("restaurants")
+      .select(`*,cloudinary_id(*)`, {count: "exact"})
+      .order("created_at", {ascending: false});
 
-    // if (status !== "all") {
-    //   query = query.eq("is_verified", status === "verified");
-    // }
-    if (searchQuery) {
-      query = query.ilike("title", `%${searchQuery}%`);
-    }
     const {data, count, error} = await query;
     if (error) {
       throw error;
@@ -26,3 +18,44 @@ export async function getCloudinaryApis(page, pageSize, status, searchQuery) {
     throw error;
   }
 }
+
+export const insertCloudinaryData = async (
+  title,
+  cloud_name,
+  upload_preset,
+  apiKey,
+  apiSecret,
+) => {
+  try {
+    // Check if cloud_name already exists
+    const {data: existingData, error: selectError} = await supabase
+      .from("cloudinary")
+      .select("cloud_name,upload_preset,apiKey,apiSecret")
+      .eq("cloud_name", cloud_name)
+      .eq("upload_preset", upload_preset)
+      .eq("apiKey", apiKey)
+      .eq("apiSecret", apiSecret);
+
+    if (selectError) {
+      throw selectError;
+    }
+
+    if (existingData.length > 0) {
+      throw new Error(
+        "A record with this Cloud name, upload preset, API key, and API secret already exists. Please use different values.",
+      );
+    }
+
+    const {data, error} = await supabase
+      .from("cloudinary")
+      .insert([{title, cloud_name, upload_preset, apiKey, apiSecret}]);
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};

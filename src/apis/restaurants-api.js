@@ -33,6 +33,7 @@ export async function getAllUsers() {
     if (error) {
       throw error;
     } else {
+      console.log("object", data);
       return data;
     }
   } catch (error) {

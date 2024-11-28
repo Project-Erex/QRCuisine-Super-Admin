@@ -1,12 +1,26 @@
-import {Input, Checkbox, Button, Typography} from "@material-tailwind/react";
+import {
+  Input,
+  Checkbox,
+  Button,
+  Typography,
+  Spinner,
+  Select,
+  Option,
+} from "@material-tailwind/react";
 import {Link, useNavigate} from "react-router-dom";
-import {useState} from "react";
-import supabase from "@/configs/supabase";
+import {useEffect, useState} from "react";
+import {toast, ToastContainer} from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import {getBaseUrl} from "@/configs/base_url";
 export function SignIn() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState({email: "", password: ""});
+  const [errors, setErrors] = useState({email: "", password: "", general: ""});
+  const [version, setVersion] = useState(localStorage.getItem("selectedVersion") || "");
+  const [loading, setLoading] = useState(false);
+
+  const apiUrl = getBaseUrl();
 
   const validate = () => {
     let valid = true;
@@ -29,36 +43,69 @@ export function SignIn() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
+    setLoading(true);
 
-    const {data, error} = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
-    });
-    if (!data) {
-      throw error;
-    } else {
-      const accessToken = data.session.access_token;
-      localStorage.setItem("accessToken", accessToken);
-      await fetchRestaurantData(data.user.id);
+    try {
+      // Step 1: Authenticate user with email and password
+      console.log("authenticating", apiUrl);
+      const response = await fetch(`${apiUrl}/api/super-admin-sign-in`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({email, password}),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setErrors((prev) => ({
+          ...prev,
+          general: result.error || "Authentication failed",
+        }));
+        toast.error(result.error || "Authentication failed");
+        return;
+      }
+
+      // Step 2: Check super admin permissions and token
+      const {data, message} = result;
+
+      if (message === "Super admin authenticated" && data.session?.access_token) {
+        const accessToken = data.session.access_token;
+        localStorage.setItem("accessToken", accessToken);
+        toast.success("Login successful! Redirecting to the dashboard...");
+        navigate("/dashboard/home");
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          general: "Unexpected response from server",
+        }));
+        toast.error("Unexpected response from server");
+      }
+    } catch (err) {
+      setErrors((prev) => ({
+        ...prev,
+        general: "An error occurred during login",
+      }));
+      console.error("Error during login:", err);
+      toast.error("An error occurred during login");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const fetchRestaurantData = async (adminId) => {
-    const {data, error} = await supabase
-      .from("restaurants")
-      .select("id, upload_preset, cloud_name, unique_name")
-      .eq("admin_id", adminId)
-      .single();
-
-    if (!data) {
-      throw error;
-    } else {
-      localStorage.setItem("restaurants_id", data.id);
-      localStorage.setItem("cloudName", data.cloud_name);
-      localStorage.setItem("uploadPreset", data.upload_preset);
-      localStorage.setItem("restaurantName", data.unique_name);
-      navigate("/dashboard/home");
+  useEffect(() => {
+    // Load the saved version from localStorage when the component mounts
+    const savedVersion = localStorage.getItem("selectedVersion");
+    if (savedVersion) {
+      setVersion(savedVersion);
     }
+  }, []);
+
+  const handleSelectChange = (selectedVersion) => {
+    setVersion(selectedVersion);
+    localStorage?.setItem("selectedVersion", selectedVersion); // Save to local storage
+    window.location.reload();
   };
 
   return (
@@ -75,9 +122,20 @@ export function SignIn() {
             Enter your email and password to Sign In.
           </Typography>
         </div>
+
         <form
           onSubmit={handleSubmit}
           className="mt-8 mb-2 mx-auto w-80 max-w-screen-lg lg:w-1/2">
+          <div className="mb-3 flex flex-col gap-6">
+            <Typography variant="small" color="blue-gray" className="-mb-3 font-medium">
+              Select Version
+            </Typography>
+            <Select value={version} onChange={handleSelectChange} label="Select Version">
+              <Option value="USA">USA</Option>
+              <Option value="India">INDIA</Option>
+            </Select>
+          </div>
+
           <div className="mb-1 flex flex-col gap-6">
             <Typography variant="small" color="blue-gray" className="-mb-3 font-medium">
               Your email
@@ -133,8 +191,12 @@ export function SignIn() {
             }
             containerProps={{className: "-ml-2.5"}}
           />
-          <Button type="submit" className="mt-6" fullWidth>
-            Sign In
+          <Button
+            disabled={loading}
+            type="submit"
+            className=" flex items-center justify-center mt-6"
+            fullWidth>
+            {loading ? <Spinner className="h-5 w-5  " /> : "Login"}
           </Button>
 
           <Typography
@@ -150,6 +212,7 @@ export function SignIn() {
       <div className="w-2/5 h-full hidden lg:block">
         <img src="/img/pattern.png" className="h-full w-full object-cover rounded-3xl" />
       </div>
+      <ToastContainer />
     </section>
   );
 }
